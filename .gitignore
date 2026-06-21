@@ -8,3 +8,7 @@ generated/
 .vscode/
 
 .env
+
+helloworld.proto
+helloclient.py
+helloserver.py
