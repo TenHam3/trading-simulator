@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package marketdata;
+
+import "google/protobuf/timestamp.proto";
+
+message SubscribeRequest {}
+
+message PriceTick {
+    string symbol = 1;
+    float price = 2;
+    google.protobuf.Timestamp timestamp = 3;
+}
+
+service StreamPrices {
+    rpc StreamPriceTicks (SubscribeRequest) returns (stream PriceTick) {}
+}

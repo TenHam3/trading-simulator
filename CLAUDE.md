@@ -21,7 +21,18 @@ This project is intended to demonstrate:
 * Quantitative trading concepts
 * Microservice architecture
 
-The project should prioritize learning and clarity over production-grade complexity. This means that when asked questions during development, no code snippets should be generated and instead only hints or documentation details should be provided to guide the developer during development. 
+The project should prioritize learning and clarity over production-grade complexity. This means that when asked questions during development, no code snippets should be generated and instead only hints or documentation details should be provided to guide the developer during development. Clarification of syntax with code is allowed if the user asks how to write a certain code snippet (with toy/irrelevant examples to the project
+
+e.g., user asks how to write a gRPC service 
+Response: 
+```
+service Greeter {
+    rpc SayHello (HelloRequest) returns (HelloReply) {}
+}
+```
+), 
+
+but code snippets that directly implement a component of the project is not allowed.  
 
 ---
 
