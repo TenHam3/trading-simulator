@@ -15,6 +15,7 @@ The simulator models the lifecycle of an automated trading system, including mar
 
 # Repository Structure
 
+```
 trading-simulator/
 
 ├── proto/
@@ -27,6 +28,7 @@ trading-simulator/
 ├── docs/
 ├── docker-compose.yml
 └── README.md
+```
 
 # How to Run
 
@@ -106,6 +108,7 @@ python -m grpc_tools.protoc -I./proto --python_out=./generated --grpc_python_out
 
 # Architecture Overview
 
+```
 Market Data
       │
       ▼
@@ -116,6 +119,7 @@ Execution
       │
       ▼
 Portfolio
+```
 
 | Service     | Responsibility                                |
 | ----------- | --------------------------------------------- |
