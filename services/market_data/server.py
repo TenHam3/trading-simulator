@@ -1,7 +1,12 @@
 import grpc
-from generated import marketdata_pb2
-from generated import marketdata_pb2_grpc
+import os
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../generated'))
+
+import marketdata_pb2
+import marketdata_pb2_grpc
 from google.protobuf.timestamp_pb2 import Timestamp
+
 from concurrent import futures
 import time
 import random
