@@ -507,41 +507,6 @@ Owns:
 
 ---
 
-# Documentation Requirements
-
-Maintain the following documents during development.
-
-## architecture.md
-
-Contains:
-
-* System overview
-* Service responsibilities
-* Architecture diagrams
-
----
-
-## protobuf.md
-
-Contains:
-
-* RPC definitions
-* Message definitions
-* Service interfaces
-
----
-
-## service-flows.md
-
-Contains:
-
-* Market data flow
-* Order flow
-* Fill flow
-* Portfolio update flow
-
----
-
 # MVP Definition
 
 The MVP is complete when:
