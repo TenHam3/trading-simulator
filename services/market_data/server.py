@@ -29,7 +29,7 @@ class MarketDataService(marketdata_pb2_grpc.StreamPricesServicer):
         while True:
             price_tick = self.GeneratePriceTick()
             yield price_tick
-            time.sleep(1)
+            time.sleep(3)
 
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
