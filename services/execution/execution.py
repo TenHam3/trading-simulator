@@ -12,8 +12,14 @@ import execution_pb2_grpc
 class ExecutionService(execution_pb2_grpc.SubmitOrderServicer):
     def __init__(self):
         self.prices = {}
+        self.events = {}
     
     async def Submit(self, request, context):
+        if self.events.get(request.symbol) is None: self.events[request.symbol] = asyncio.Event()
+        try:
+            await asyncio.wait_for(self.events[request.symbol].wait(), timeout=3)
+        except asyncio.TimeoutError:
+            await context.abort(grpc.StatusCode.DEADLINE_EXCEEDED, f"Timeout waiting for market data for symbol {request.symbol}")
         return execution_pb2.Fill(symbol=request.symbol, 
                                   price=self.prices.get(request.symbol), 
                                   quantity=request.quantity)
@@ -23,6 +29,8 @@ class ExecutionService(execution_pb2_grpc.SubmitOrderServicer):
             mkt_stub = marketdata_pb2_grpc.StreamPricesStub(mkt_channel)
             async for response in mkt_stub.StreamPriceTicks(marketdata_pb2.SubscribeRequest()):
                 self.prices[response.symbol] = response.price
+                if self.events.get(response.symbol) is None: self.events[response.symbol] = asyncio.Event()
+                self.events[response.symbol].set()
     
 async def serve():
     server = grpc.aio.server()
