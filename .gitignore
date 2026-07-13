@@ -12,3 +12,7 @@ generated/
 helloworld.proto
 helloclient.py
 helloserver.py
+helloclient_async.py
+helloserver_async.py
+quizzes.md
+quiz-answers.md

@@ -103,7 +103,7 @@ The generated gRPC Python files are not committed to the repository. After cloni
 or 
 
 ```
-python -m grpc_tools.protoc -I./proto --python_out=./generated --grpc_python_out=./generated ./proto/marketdata.proto ./proto/strategy.proto ./proto/execution.proto ./proto/portfolio.proto
+python -m grpc_tools.protoc -I./proto --python_out=./generated --grpc_python_out=./generated ./proto/marketdata.proto ./proto/execution.proto ./proto/portfolio.proto
 ```
 
 # Architecture Overview
