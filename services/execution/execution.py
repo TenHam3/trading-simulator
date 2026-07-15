@@ -19,7 +19,8 @@ class ExecutionService(execution_pb2_grpc.SubmitOrderServicer):
         try:
             await asyncio.wait_for(self.events[request.symbol].wait(), timeout=3)
         except asyncio.TimeoutError:
-            await context.abort(grpc.StatusCode.DEADLINE_EXCEEDED, f"Timeout waiting for market data for symbol {request.symbol}")
+            await context.abort(grpc.StatusCode.DEADLINE_EXCEEDED, 
+                                f"Timeout waiting for market data for symbol {request.symbol}")
         return execution_pb2.Fill(symbol=request.symbol, 
                                   price=self.prices.get(request.symbol), 
                                   quantity=request.quantity)
