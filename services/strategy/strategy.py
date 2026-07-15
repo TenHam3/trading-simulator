@@ -33,7 +33,7 @@ def run():
             else:
                 order = execution_pb2.Order()
                 if price > mvng_avg:
-                    order.symbol = "ZZZ"
+                    order.symbol = response.symbol
                     order.side = 'BUY'
                     order.quantity = TRADE_QTY
                     logger.info(f"BUY {TRADE_QTY} {symbol} at {price} (AVG: {mvng_avg})")
