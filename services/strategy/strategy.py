@@ -16,7 +16,7 @@ def run():
     with grpc.insecure_channel('localhost:50051') as mkt_channel, grpc.insecure_channel('localhost:50052') as ex_channel:
         mkt_stub = marketdata_pb2_grpc.StreamPricesStub(mkt_channel)
         logger.info("Connected to Market Data Service on port 50051")
-        ex_stub = execution_pb2_grpc.SubmitOrderStub(ex_channel)
+        ex_stub = execution_pb2_grpc.FillServiceStub(ex_channel)
         logger.info("Connected to Execution Service on port 50052")
         price_window, held = [], 0
         for response in mkt_stub.StreamPriceTicks(marketdata_pb2.SubscribeRequest()):
@@ -39,7 +39,7 @@ def run():
                     logger.info(f"BUY {TRADE_QTY} {symbol} at {price} (AVG: {mvng_avg})")
 
                     try:
-                        fill = ex_stub.Submit(order)
+                        fill = ex_stub.GetFill(order)
                         held += TRADE_QTY
                         logger.info(f"Filled BUY {TRADE_QTY} {symbol} at {fill.price}")
                     except grpc.RpcError as e:
@@ -54,7 +54,7 @@ def run():
                     logger.info(f"SELL {TRADE_QTY} {symbol} at {price} (AVG: {mvng_avg})")
 
                     try:
-                        fill = ex_stub.Submit(order)
+                        fill = ex_stub.GetFill(order)
                         logger.info(f"Filled SELL {TRADE_QTY} {symbol} at {fill.price}")
                         held -= TRADE_QTY
                     except grpc.RpcError as e:

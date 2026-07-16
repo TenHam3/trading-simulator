@@ -11,12 +11,13 @@ import marketdata_pb2_grpc
 import execution_pb2
 import execution_pb2_grpc
 
-class ExecutionService(execution_pb2_grpc.SubmitOrderServicer):
+class ExecutionService(execution_pb2_grpc.FillServiceServicer):
     def __init__(self):
         self.prices = {}
         self.events = {}
+        self.fill_queues = set()
     
-    async def Submit(self, request, context):
+    async def GetFill(self, request, context):
         logger.info(f"Received order submission - {request.side} {request.quantity} {request.symbol}")
         if self.events.get(request.symbol) is None: self.events[request.symbol] = asyncio.Event()
         try:
@@ -26,9 +27,23 @@ class ExecutionService(execution_pb2_grpc.SubmitOrderServicer):
             logger.error(f"Timeout waiting for market data for {request.symbol}")
             await context.abort(grpc.StatusCode.DEADLINE_EXCEEDED, 
                                 f"Timeout waiting for market data for symbol {request.symbol}")
-        return execution_pb2.Fill(symbol=request.symbol, 
+        fill = execution_pb2.Fill(symbol=request.symbol, 
                                   price=self.prices.get(request.symbol), 
+                                  side=request.side,
                                   quantity=request.quantity)
+        for queue in self.fill_queues:
+            await queue.put(fill)
+        return fill
+    
+    async def StreamOrderFills(self, request, context):
+        queue = asyncio.Queue()
+        self.fill_queues.add(queue)
+        try:
+            while True:
+                fill = await queue.get()
+                yield fill
+        finally:
+            self.fill_queues.discard(queue)
     
     async def get_market_data(self):
         async with grpc.aio.insecure_channel('localhost:50051') as mkt_channel:
@@ -42,7 +57,7 @@ class ExecutionService(execution_pb2_grpc.SubmitOrderServicer):
 async def serve():
     server = grpc.aio.server()
     servicer = ExecutionService()
-    execution_pb2_grpc.add_SubmitOrderServicer_to_server(servicer, server)
+    execution_pb2_grpc.add_FillServiceServicer_to_server(servicer, server)
     server.add_insecure_port('[::]:50052')
     await server.start()
     logger.info("Execution service started on port 50052")

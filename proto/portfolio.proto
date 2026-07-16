@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package portfolio;
+
+import "google/protobuf/timestamp.proto";
+
+message PortfolioRequest {}
+
+message Position {
+    int32 size = 1;
+    float average_cost = 2;
+    float current_price = 3;
+    float unrealized_pnl = 4;
+    float realized_pnl = 5;
+    google.protobuf.Timestamp timestamp = 6;
+}
+
+message Portfolio {
+    map<string, Position> positions = 1;
+}
+
+service PortfolioService {
+    rpc GetPortfolio (PortfolioRequest) returns (Portfolio) {}
+}
