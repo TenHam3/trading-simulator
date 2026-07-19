@@ -21,11 +21,13 @@ class PortfolioService(portfolio_pb2_grpc.PortfolioServiceServicer):
         self.portfolio = portfolio_pb2.Portfolio()
 
     async def GetPortfolio(self, request, context):
+        logger.debug(f"Returned portfolio: {self.portfolio}")
         return self.portfolio
 
     async def get_market_data(self):
         async with grpc.aio.insecure_channel('localhost:50051') as mkt_channel:
             mkt_stub = marketdata_pb2_grpc.StreamPricesStub(mkt_channel)
+            logger.info("Connected to Market Data Service on port 50051")
             async for response in mkt_stub.StreamPriceTicks(marketdata_pb2.SubscribeRequest()):
                 self.prices[response.symbol] = response.price
                 logger.debug(f"Updated price for {response.symbol}: {response.price}")
@@ -35,6 +37,7 @@ class PortfolioService(portfolio_pb2_grpc.PortfolioServiceServicer):
     async def get_fills(self):
         async with grpc.aio.insecure_channel('localhost:50052') as ex_channel:
             ex_stub = execution_pb2_grpc.FillServiceStub(ex_channel)
+            logger.info("Connected to Execution Service on port 50052")
             async for fill in ex_stub.StreamOrderFills(execution_pb2.SubscribeRequest()):
                 logger.info(f"Received fill - {fill.side} {fill.quantity} {fill.symbol} at {fill.price}")
                 if self.events.get(fill.symbol) is None: self.events[fill.symbol] = asyncio.Event()
@@ -47,7 +50,10 @@ class PortfolioService(portfolio_pb2_grpc.PortfolioServiceServicer):
                 ts = Timestamp()
                 ts.GetCurrentTime()
                 if fill.symbol not in self.portfolio.positions:
-                    if fill.side == "SELL": continue
+                    if fill.side == "SELL": 
+                        logger.warning(f"Rejected fill - Attempted to oversell {fill.quantity} {fill.symbol} with no current holdings")
+                        continue
+                    logger.info(f"Opened new position - {fill.quantity} {fill.symbol} at {fill.price}")
                     self.portfolio.positions[fill.symbol].CopyFrom(portfolio_pb2.Position(size=fill.quantity,
                                                                          average_cost=fill.price,
                                                                          current_price=curr_price,
@@ -63,13 +69,18 @@ class PortfolioService(portfolio_pb2_grpc.PortfolioServiceServicer):
                     else:
                         avg_cost = position.average_cost
                         valid_sell = fill.quantity <= position.size
-                        position.size -= fill.quantity if valid_sell else 0
-                    
-                    position.realized_pnl += (fill.price - position.average_cost) * fill.quantity if fill.side == "SELL" and valid_sell else 0
+                        if valid_sell:
+                            position.size -= fill.quantity    
+                            position.realized_pnl += (fill.price - position.average_cost) * fill.quantity
+                        else:
+                            logger.warning(f"Rejected fill - Attempted to oversell {fill.quantity} {fill.symbol} when size is only {position.size}")
+                            continue
+
                     position.average_cost = avg_cost
                     position.current_price = curr_price
                     position.unrealized_pnl = (curr_price - avg_cost) * position.size
                     position.timestamp.CopyFrom(ts)
+                    logger.info(f"Updated position for {fill.symbol} - Size: {position.size}; Avg. Cost: {avg_cost}; UPnL: {position.unrealized_pnl}{f"; RPnL: {position.realized_pnl}" if fill.side == "SELL" else ""}")
 
 async def serve():
     server = grpc.aio.server()
