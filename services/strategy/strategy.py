@@ -14,7 +14,7 @@ TRADE_QTY = 1
 
 def run():
     with grpc.insecure_channel('localhost:50051') as mkt_channel, grpc.insecure_channel('localhost:50052') as ex_channel:
-        mkt_stub = marketdata_pb2_grpc.StreamPricesStub(mkt_channel)
+        mkt_stub = marketdata_pb2_grpc.MarketDataServiceStub(mkt_channel)
         logger.info("Connected to Market Data Service on port 50051")
         ex_stub = execution_pb2_grpc.FillServiceStub(ex_channel)
         logger.info("Connected to Execution Service on port 50052")

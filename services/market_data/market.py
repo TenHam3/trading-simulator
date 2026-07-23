@@ -11,7 +11,7 @@ import marketdata_pb2
 import marketdata_pb2_grpc
 from google.protobuf.timestamp_pb2 import Timestamp
 
-class MarketDataService(marketdata_pb2_grpc.StreamPricesServicer):
+class MarketDataService(marketdata_pb2_grpc.MarketDataServiceServicer):
     def __init__(self):
         self.price = 100.0
 
@@ -36,7 +36,7 @@ class MarketDataService(marketdata_pb2_grpc.StreamPricesServicer):
 async def serve():
     server = grpc.aio.server()
     servicer = MarketDataService()
-    marketdata_pb2_grpc.add_StreamPricesServicer_to_server(servicer, server)
+    marketdata_pb2_grpc.add_MarketDataServiceServicer_to_server(servicer, server)
     server.add_insecure_port('[::]:50051')
     await server.start()
     logger.info("Market Data service started on port 50051")

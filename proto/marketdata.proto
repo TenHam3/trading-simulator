@@ -12,6 +12,6 @@ message PriceTick {
     google.protobuf.Timestamp timestamp = 3;
 }
 
-service StreamPrices {
+service MarketDataService {
     rpc StreamPriceTicks (SubscribeRequest) returns (stream PriceTick) {}
 }

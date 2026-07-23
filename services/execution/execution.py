@@ -47,7 +47,7 @@ class ExecutionService(execution_pb2_grpc.FillServiceServicer):
     
     async def get_market_data(self):
         async with grpc.aio.insecure_channel('localhost:50051') as mkt_channel:
-            mkt_stub = marketdata_pb2_grpc.StreamPricesStub(mkt_channel)
+            mkt_stub = marketdata_pb2_grpc.MarketDataServiceStub(mkt_channel)
             async for response in mkt_stub.StreamPriceTicks(marketdata_pb2.SubscribeRequest()):
                 self.prices[response.symbol] = response.price
                 logger.debug(f"Updated price for {response.symbol}: {response.price}")
