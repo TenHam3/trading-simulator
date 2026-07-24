@@ -1,0 +1,26 @@
+# common.env
+services:
+  market_data:
+    build:
+      context: .
+      dockerfile: ./services/market_data/Dockerfile
+    env_file:
+      - common.env
+  strategy:
+    build:
+      context: .
+      dockerfile: ./services/strategy/Dockerfile
+    env_file:
+      - common.env
+  execution:
+    build:
+      context: .
+      dockerfile: ./services/execution/Dockerfile
+    env_file:
+      - common.env
+  portfolio:
+    build:
+      context: .
+      dockerfile: ./services/portfolio/Dockerfile
+    env_file:
+      - common.env
