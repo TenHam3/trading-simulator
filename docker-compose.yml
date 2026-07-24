@@ -21,6 +21,8 @@ services:
       dockerfile: ./services/execution/Dockerfile
     env_file:
       - common.env
+    environment:
+      - MKT_HOST=market_data
   portfolio:
     build:
       context: .

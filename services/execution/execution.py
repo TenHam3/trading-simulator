@@ -4,7 +4,10 @@ import os
 import sys
 import logging
 logger = logging.getLogger(__name__)
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../generated'))
+MKT_PORT = os.environ.get('MKT_PORT', '50051')
+EX_PORT = os.environ.get('EX_PORT', '50052')
+MKT_HOST = os.environ.get('MKT_HOST', 'localhost')
+# sys.path.append(os.path.join(os.path.dirname(__file__), '../../generated')) Uncomment only for direct runs from commandline
 
 import marketdata_pb2
 import marketdata_pb2_grpc
@@ -46,7 +49,7 @@ class ExecutionService(execution_pb2_grpc.FillServiceServicer):
             self.fill_queues.discard(queue)
     
     async def get_market_data(self):
-        async with grpc.aio.insecure_channel('localhost:50051') as mkt_channel:
+        async with grpc.aio.insecure_channel(f'{MKT_HOST}:{MKT_PORT}') as mkt_channel:
             mkt_stub = marketdata_pb2_grpc.MarketDataServiceStub(mkt_channel)
             async for response in mkt_stub.StreamPriceTicks(marketdata_pb2.SubscribeRequest()):
                 self.prices[response.symbol] = response.price
@@ -58,9 +61,9 @@ async def serve():
     server = grpc.aio.server()
     servicer = ExecutionService()
     execution_pb2_grpc.add_FillServiceServicer_to_server(servicer, server)
-    server.add_insecure_port('[::]:50052')
+    server.add_insecure_port(f'[::]:{EX_PORT}')
     await server.start()
-    logger.info("Execution service started on port 50052")
+    logger.info(f"Execution service started on port {EX_PORT}")
     await asyncio.gather(servicer.get_market_data(), server.wait_for_termination())
 
 if __name__ == '__main__':
