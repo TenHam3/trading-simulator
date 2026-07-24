@@ -29,3 +29,6 @@ services:
       dockerfile: ./services/portfolio/Dockerfile
     env_file:
       - common.env
+    environment:
+      - MKT_HOST=market_data
+      - EX_HOST=execution
