@@ -5,7 +5,7 @@ import sys
 import random
 import logging
 logger = logging.getLogger(__name__)
-MARKET_PORT = os.environ.get('MARKET_PORT', '50051')
+MKT_PORT = os.environ.get('MKT_PORT', '50051')
 # sys.path.append(os.path.join(os.path.dirname(__file__), '../../generated')) Uncomment only for direct runs from commandline
 
 import marketdata_pb2
@@ -38,9 +38,9 @@ async def serve():
     server = grpc.aio.server()
     servicer = MarketDataService()
     marketdata_pb2_grpc.add_MarketDataServiceServicer_to_server(servicer, server)
-    server.add_insecure_port(f'[::]:{MARKET_PORT}')
+    server.add_insecure_port(f'[::]:{MKT_PORT}')
     await server.start()
-    logger.info(f"Market Data service started on port {MARKET_PORT}")
+    logger.info(f"Market Data service started on port {MKT_PORT}")
     await asyncio.gather(servicer.AdjustPrice(), server.wait_for_termination())
 
 if __name__ == '__main__':

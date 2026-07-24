@@ -3,7 +3,11 @@ import os
 import sys
 import logging
 logger = logging.getLogger(__name__)
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../generated'))
+MKT_PORT = os.environ.get('MKT_PORT', '50051')
+EX_PORT = os.environ.get('EX_PORT', '50052')
+MKT_HOST = os.environ.get('MKT_HOST', 'localhost')
+EX_HOST = os.environ.get('EX_HOST', 'localhost')
+# sys.path.append(os.path.join(os.path.dirname(__file__), '../../generated')) Uncomment only for direct runs from commandline
 
 import marketdata_pb2
 import marketdata_pb2_grpc
@@ -13,11 +17,11 @@ import execution_pb2_grpc
 TRADE_QTY = 1
 
 def run():
-    with grpc.insecure_channel('localhost:50051') as mkt_channel, grpc.insecure_channel('localhost:50052') as ex_channel:
+    with grpc.insecure_channel(f'{MKT_HOST}:{MKT_PORT}') as mkt_channel, grpc.insecure_channel(f'{EX_HOST}:{EX_PORT}') as ex_channel:
         mkt_stub = marketdata_pb2_grpc.MarketDataServiceStub(mkt_channel)
-        logger.info("Connected to Market Data Service on port 50051")
+        logger.info(f"Connected to Market Data Service on port {MKT_PORT}")
         ex_stub = execution_pb2_grpc.FillServiceStub(ex_channel)
-        logger.info("Connected to Execution Service on port 50052")
+        logger.info(f"Connected to Execution Service on port {EX_PORT}")
         price_window, held = [], 0
         for response in mkt_stub.StreamPriceTicks(marketdata_pb2.SubscribeRequest()):
             symbol, price = response.symbol, response.price
