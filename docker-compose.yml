@@ -37,6 +37,8 @@ services:
     environment:
       - MKT_HOST=market_data
       - EX_HOST=execution
+    ports:
+      - 50053:50053
     depends_on:
       - market_data
       - execution
