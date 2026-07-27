@@ -34,8 +34,17 @@ class PortfolioService(portfolio_pb2_grpc.PortfolioServiceServicer):
             mkt_stub = marketdata_pb2_grpc.MarketDataServiceStub(mkt_channel)
             logger.info(f"Connected to Market Data Service on port {MKT_PORT}")
             async for response in mkt_stub.StreamPriceTicks(marketdata_pb2.SubscribeRequest()):
-                self.prices[response.symbol] = response.price
+                symbol, curr_price = response.symbol, response.price
+                self.prices[symbol] = curr_price
                 logger.debug(f"Updated price for {response.symbol}: {response.price}")
+                if symbol in self.portfolio.positions:
+                    position = self.portfolio.positions[symbol]
+                    ts = Timestamp()
+                    ts.GetCurrentTime()
+                    position.current_price = curr_price
+                    position.timestamp.CopyFrom(ts)
+                    position.unrealized_pnl = (curr_price - position.average_cost) * position.size
+                    logger.debug(f"Updated UPnL for {symbol} - UPnL: {position.unrealized_pnl} with current price {curr_price}")
                 if self.events.get(response.symbol) is None: self.events[response.symbol] = asyncio.Event()
                 self.events[response.symbol].set()
 
