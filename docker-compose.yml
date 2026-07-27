@@ -15,6 +15,9 @@ services:
     environment:
       - MKT_HOST=market_data
       - EX_HOST=execution
+    depends_on:
+      - market_data
+      - execution
   execution:
     build:
       context: .
@@ -23,6 +26,8 @@ services:
       - common.env
     environment:
       - MKT_HOST=market_data
+    depends_on:
+      - market_data
   portfolio:
     build:
       context: .
@@ -32,3 +37,6 @@ services:
     environment:
       - MKT_HOST=market_data
       - EX_HOST=execution
+    depends_on:
+      - market_data
+      - execution
