@@ -1,4 +1,5 @@
-import grpc
+import grpc.aio
+import asyncio
 import os
 import sys
 import logging
@@ -16,14 +17,14 @@ import execution_pb2_grpc
 
 TRADE_QTY = 1
 
-def run():
-    with grpc.insecure_channel(f'{MKT_HOST}:{MKT_PORT}') as mkt_channel, grpc.insecure_channel(f'{EX_HOST}:{EX_PORT}') as ex_channel:
+async def run():
+    async with grpc.aio.insecure_channel(f'{MKT_HOST}:{MKT_PORT}') as mkt_channel, grpc.aio.insecure_channel(f'{EX_HOST}:{EX_PORT}') as ex_channel:
         mkt_stub = marketdata_pb2_grpc.MarketDataServiceStub(mkt_channel)
         logger.info(f"Connected to Market Data Service on port {MKT_PORT}")
         ex_stub = execution_pb2_grpc.FillServiceStub(ex_channel)
         logger.info(f"Connected to Execution Service on port {EX_PORT}")
         price_window, held = [], 0
-        for response in mkt_stub.StreamPriceTicks(marketdata_pb2.SubscribeRequest()):
+        async for response in mkt_stub.StreamPriceTicks(marketdata_pb2.SubscribeRequest()):
             symbol, price = response.symbol, response.price
             mvng_avg = sum(price_window) / len(price_window) if price_window else None
             logger.debug(f"Received price tick - {symbol}: {price}; Moving Average: {mvng_avg if mvng_avg else 'N/A'}")
@@ -43,7 +44,7 @@ def run():
                     logger.info(f"BUY {TRADE_QTY} {symbol} at {price} (AVG: {mvng_avg})")
 
                     try:
-                        fill = ex_stub.GetFill(order)
+                        fill = await ex_stub.GetFill(order)
                         held += TRADE_QTY
                         logger.info(f"Filled BUY {TRADE_QTY} {symbol} at {fill.price}")
                     except grpc.RpcError as e:
@@ -58,7 +59,7 @@ def run():
                     logger.info(f"SELL {TRADE_QTY} {symbol} at {price} (AVG: {mvng_avg})")
 
                     try:
-                        fill = ex_stub.GetFill(order)
+                        fill = await ex_stub.GetFill(order)
                         logger.info(f"Filled SELL {TRADE_QTY} {symbol} at {fill.price}")
                         held -= TRADE_QTY
                     except grpc.RpcError as e:
@@ -71,4 +72,4 @@ def run():
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    run()
+    asyncio.run(run())
