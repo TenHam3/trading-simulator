@@ -55,7 +55,7 @@ class PortfolioService(portfolio_pb2_grpc.PortfolioServiceServicer):
                         if self.events.get(response.symbol) is None: self.events[response.symbol] = asyncio.Event()
                         self.events[response.symbol].set()
                 except grpc.aio.AioRpcError:
-                    logger.error(f"Failed to maintain connection to server. Attempting reconnection for {backoff} seconds")
+                    logger.error(f"Failed to maintain connection to Market Data Service. Attempting reconnection for {backoff} seconds")
                     await asyncio.sleep(backoff)
                     backoff = min(backoff * 2, MAX_BACKOFF)
 
@@ -63,50 +63,58 @@ class PortfolioService(portfolio_pb2_grpc.PortfolioServiceServicer):
         async with grpc.aio.insecure_channel(f'{EX_HOST}:{EX_PORT}') as ex_channel:
             ex_stub = execution_pb2_grpc.FillServiceStub(ex_channel)
             logger.info(f"Connected to Execution Service on port {EX_PORT}")
-            async for fill in ex_stub.StreamOrderFills(execution_pb2.SubscribeRequest()):
-                logger.info(f"Received fill - {fill.side} {fill.quantity} {fill.symbol} at {fill.price}")
-                if self.events.get(fill.symbol) is None: self.events[fill.symbol] = asyncio.Event()
+            backoff = 1
+            while True:
                 try:
-                    await asyncio.wait_for(self.events[fill.symbol].wait(), timeout=3)
-                    curr_price = self.prices.get(fill.symbol)
-                except asyncio.TimeoutError:
-                    logger.error(f"Timeout waiting for market data for {fill.symbol}")
-                    continue
-                ts = Timestamp()
-                ts.GetCurrentTime()
-                if fill.symbol not in self.portfolio.positions:
-                    if fill.side == "SELL": 
-                        logger.warning(f"Rejected fill - Attempted to oversell {fill.quantity} {fill.symbol} with no current holdings")
-                        continue
-                    logger.info(f"Opened new position - {fill.quantity} {fill.symbol} at {fill.price}")
-                    self.portfolio.positions[fill.symbol].CopyFrom(portfolio_pb2.Position(size=fill.quantity,
-                                                                         average_cost=fill.price,
-                                                                         current_price=curr_price,
-                                                                         unrealized_pnl=(curr_price - fill.price) * fill.quantity,
-                                                                         realized_pnl=0.0,
-                                                                         timestamp=ts))
-                else:
-                    position = self.portfolio.positions[fill.symbol]
-                    if fill.side =="BUY":
-                        avg_cost = (position.size * position.average_cost + fill.quantity * fill.price) / (position.size + fill.quantity)
-                        valid_sell = False
-                        position.size += fill.quantity
-                    else:
-                        avg_cost = position.average_cost
-                        valid_sell = fill.quantity <= position.size
-                        if valid_sell:
-                            position.size -= fill.quantity    
-                            position.realized_pnl += (fill.price - position.average_cost) * fill.quantity
-                        else:
-                            logger.warning(f"Rejected fill - Attempted to oversell {fill.quantity} {fill.symbol} when size is only {position.size}")
+                    ex_stream = ex_stub.StreamOrderFills(execution_pb2.SubscribeRequest())
+                    async for fill in ex_stream:
+                        if backoff != 1: backoff = 1
+                        logger.info(f"Received fill - {fill.side} {fill.quantity} {fill.symbol} at {fill.price}")
+                        if self.events.get(fill.symbol) is None: self.events[fill.symbol] = asyncio.Event()
+                        try:
+                            await asyncio.wait_for(self.events[fill.symbol].wait(), timeout=3)
+                            curr_price = self.prices.get(fill.symbol)
+                        except asyncio.TimeoutError:
+                            logger.error(f"Timeout waiting for market data for {fill.symbol}")
                             continue
+                        ts = Timestamp()
+                        ts.GetCurrentTime()
+                        if fill.symbol not in self.portfolio.positions:
+                            if fill.side == "SELL": 
+                                logger.warning(f"Rejected fill - Attempted to oversell {fill.quantity} {fill.symbol} with no current holdings")
+                                continue
+                            logger.info(f"Opened new position - {fill.quantity} {fill.symbol} at {fill.price}")
+                            self.portfolio.positions[fill.symbol].CopyFrom(portfolio_pb2.Position(size=fill.quantity,
+                                                                                average_cost=fill.price,
+                                                                                current_price=curr_price,
+                                                                                unrealized_pnl=(curr_price - fill.price) * fill.quantity,
+                                                                                realized_pnl=0.0,
+                                                                                timestamp=ts))
+                        else:
+                            position = self.portfolio.positions[fill.symbol]
+                            if fill.side =="BUY":
+                                avg_cost = (position.size * position.average_cost + fill.quantity * fill.price) / (position.size + fill.quantity)
+                                valid_sell = False
+                                position.size += fill.quantity
+                            else:
+                                avg_cost = position.average_cost
+                                valid_sell = fill.quantity <= position.size
+                                if valid_sell:
+                                    position.size -= fill.quantity    
+                                    position.realized_pnl += (fill.price - position.average_cost) * fill.quantity
+                                else:
+                                    logger.warning(f"Rejected fill - Attempted to oversell {fill.quantity} {fill.symbol} when size is only {position.size}")
+                                    continue
 
-                    position.average_cost = avg_cost
-                    position.current_price = curr_price
-                    position.unrealized_pnl = (curr_price - avg_cost) * position.size
-                    position.timestamp.CopyFrom(ts)
-                    logger.info(f"Updated position for {fill.symbol} - Size: {position.size}; Avg. Cost: {avg_cost}; UPnL: {position.unrealized_pnl}{f"; RPnL: {position.realized_pnl}" if fill.side == "SELL" else ""}")
-
+                            position.average_cost = avg_cost
+                            position.current_price = curr_price
+                            position.unrealized_pnl = (curr_price - avg_cost) * position.size
+                            position.timestamp.CopyFrom(ts)
+                            logger.info(f"Updated position for {fill.symbol} - Size: {position.size}; Avg. Cost: {avg_cost}; UPnL: {position.unrealized_pnl}{f"; RPnL: {position.realized_pnl}" if fill.side == "SELL" else ""}")
+                except grpc.aio.AioRpcError:
+                    logger.error(f"Failed to maintain connection to Execution service. Attempting reconnection for {backoff} seconds")
+                    await asyncio.sleep(backoff)
+                    backoff = min(backoff * 2, MAX_BACKOFF)
 async def serve():
     server = grpc.aio.server()
     servicer = PortfolioService()

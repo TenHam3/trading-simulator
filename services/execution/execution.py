@@ -64,7 +64,7 @@ class ExecutionService(execution_pb2_grpc.FillServiceServicer):
                         if self.events.get(response.symbol) is None: self.events[response.symbol] = asyncio.Event()
                         self.events[response.symbol].set()
                 except grpc.aio.AioRpcError:
-                    logger.error(f"Failed to maintain connection to server. Attempting reconnection for {backoff} seconds")
+                    logger.error(f"Failed to maintain connection to Market Data Service. Attempting reconnection for {backoff} seconds")
                     await asyncio.sleep(backoff)
                     backoff = min(backoff * 2, MAX_BACKOFF)
     

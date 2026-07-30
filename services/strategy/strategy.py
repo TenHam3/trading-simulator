@@ -76,7 +76,7 @@ async def run():
                         else:
                             logger.info(f"HOLD {TRADE_QTY} {symbol} at {price} (AVG: {mvng_avg})")
             except grpc.aio.AioRpcError as e:
-                logger.error(f"Failed to maintain connection to server. Attempting reconnection for {backoff} seconds")
+                logger.error(f"Failed to maintain connection to Market Data Service. Attempting reconnection for {backoff} seconds")
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, MAX_BACKOFF)
 
