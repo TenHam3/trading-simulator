@@ -19,6 +19,8 @@ import execution_pb2_grpc
 import portfolio_pb2
 import portfolio_pb2_grpc
 
+MAX_BACKOFF = 30
+
 class PortfolioService(portfolio_pb2_grpc.PortfolioServiceServicer):
     def __init__(self):
         self.prices = {}
@@ -33,20 +35,29 @@ class PortfolioService(portfolio_pb2_grpc.PortfolioServiceServicer):
         async with grpc.aio.insecure_channel(f'{MKT_HOST}:{MKT_PORT}') as mkt_channel:
             mkt_stub = marketdata_pb2_grpc.MarketDataServiceStub(mkt_channel)
             logger.info(f"Connected to Market Data Service on port {MKT_PORT}")
-            async for response in mkt_stub.StreamPriceTicks(marketdata_pb2.SubscribeRequest()):
-                symbol, curr_price = response.symbol, response.price
-                self.prices[symbol] = curr_price
-                logger.debug(f"Updated price for {response.symbol}: {response.price}")
-                if symbol in self.portfolio.positions:
-                    position = self.portfolio.positions[symbol]
-                    ts = Timestamp()
-                    ts.GetCurrentTime()
-                    position.current_price = curr_price
-                    position.timestamp.CopyFrom(ts)
-                    position.unrealized_pnl = (curr_price - position.average_cost) * position.size
-                    logger.debug(f"Updated UPnL for {symbol} - UPnL: {position.unrealized_pnl} with current price {curr_price}")
-                if self.events.get(response.symbol) is None: self.events[response.symbol] = asyncio.Event()
-                self.events[response.symbol].set()
+            backoff = 1
+            while True:
+                try:
+                    mkt_stream = mkt_stub.StreamPriceTicks(marketdata_pb2.SubscribeRequest())
+                    async for response in mkt_stream:
+                        if backoff != 1: backoff = 1
+                        symbol, curr_price = response.symbol, response.price
+                        self.prices[symbol] = curr_price
+                        logger.debug(f"Updated price for {response.symbol}: {response.price}")
+                        if symbol in self.portfolio.positions:
+                            position = self.portfolio.positions[symbol]
+                            ts = Timestamp()
+                            ts.GetCurrentTime()
+                            position.current_price = curr_price
+                            position.timestamp.CopyFrom(ts)
+                            position.unrealized_pnl = (curr_price - position.average_cost) * position.size
+                            logger.debug(f"Updated UPnL for {symbol} - UPnL: {position.unrealized_pnl} with current price {curr_price}")
+                        if self.events.get(response.symbol) is None: self.events[response.symbol] = asyncio.Event()
+                        self.events[response.symbol].set()
+                except grpc.aio.AioRpcError:
+                    logger.error(f"Failed to maintain connection to server. Attempting reconnection for {backoff} seconds")
+                    await asyncio.sleep(backoff)
+                    backoff = min(backoff * 2, MAX_BACKOFF)
 
     async def get_fills(self):
         async with grpc.aio.insecure_channel(f'{EX_HOST}:{EX_PORT}') as ex_channel:

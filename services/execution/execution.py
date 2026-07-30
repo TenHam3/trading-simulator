@@ -14,6 +14,8 @@ import marketdata_pb2_grpc
 import execution_pb2
 import execution_pb2_grpc
 
+MAX_BACKOFF = 30
+
 class ExecutionService(execution_pb2_grpc.FillServiceServicer):
     def __init__(self):
         self.prices = {}
@@ -51,11 +53,20 @@ class ExecutionService(execution_pb2_grpc.FillServiceServicer):
     async def get_market_data(self):
         async with grpc.aio.insecure_channel(f'{MKT_HOST}:{MKT_PORT}') as mkt_channel:
             mkt_stub = marketdata_pb2_grpc.MarketDataServiceStub(mkt_channel)
-            async for response in mkt_stub.StreamPriceTicks(marketdata_pb2.SubscribeRequest()):
-                self.prices[response.symbol] = response.price
-                logger.debug(f"Updated price for {response.symbol}: {response.price}")
-                if self.events.get(response.symbol) is None: self.events[response.symbol] = asyncio.Event()
-                self.events[response.symbol].set()
+            backoff = 1
+            while True:
+                try:
+                    mkt_stream = mkt_stub.StreamPriceTicks(marketdata_pb2.SubscribeRequest())
+                    async for response in mkt_stream:
+                        if backoff != 1: backoff = 1
+                        self.prices[response.symbol] = response.price
+                        logger.debug(f"Updated price for {response.symbol}: {response.price}")
+                        if self.events.get(response.symbol) is None: self.events[response.symbol] = asyncio.Event()
+                        self.events[response.symbol].set()
+                except grpc.aio.AioRpcError:
+                    logger.error(f"Failed to maintain connection to server. Attempting reconnection for {backoff} seconds")
+                    await asyncio.sleep(backoff)
+                    backoff = min(backoff * 2, MAX_BACKOFF)
     
 async def serve():
     server = grpc.aio.server()
